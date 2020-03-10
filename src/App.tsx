@@ -1,17 +1,17 @@
 import React, { PureComponent } from 'react';
 import './App.css';
 
-interface Props {}
 interface State {
     headerHeight: number;
     width: number;
     height: number;
     squareSize: number;
     map: boolean[][];
+    canvasContext?: any;
 }
 
-class App extends PureComponent<Props, State> {
-    constructor(props: Props) {
+class App extends PureComponent<{}, State> {
+    constructor(props: {}) {
         super(props);
         const { innerWidth: width, innerHeight: height } = window;
         const squareSize = 200;
@@ -24,7 +24,6 @@ class App extends PureComponent<Props, State> {
                 [...Array(Math.ceil(height / squareSize))].map((elem, y) => (x + y) % 2 === 0),
             ),
         };
-        console.log('Map', this.state.map);
     }
     componentDidMount(): void {
         window.addEventListener('resize', this.updateWindowDimensions);
@@ -40,22 +39,37 @@ class App extends PureComponent<Props, State> {
     };
 
     onCanvasPress = (e: any): void => {
-        const x = e.pageX;
-        const y = e.pageY - this.state.headerHeight;
-        console.log('x', x);
-        console.log('y', y);
+        const x = Math.floor(e.pageX / this.state.squareSize);
+        const y = Math.floor((e.pageY - this.state.headerHeight) / this.state.squareSize);
+        const map = this.state.map;
+        map[x][y] = !map[x][y];
+        if (map[x][y])
+            this.state.canvasContext.fillRect(
+                x * this.state.squareSize,
+                y * this.state.squareSize,
+                this.state.squareSize - 1,
+                this.state.squareSize - 1,
+            );
+        else
+            this.state.canvasContext.clearRect(
+                x * this.state.squareSize,
+                y * this.state.squareSize,
+                this.state.squareSize - 1,
+                this.state.squareSize - 1,
+            );
+        this.setState({ map });
     };
 
     drawGrid = (): void => {
         const canvas: any = this.refs.canvas;
         canvas.addEventListener('mousedown', this.onCanvasPress, false);
-        const ctx = canvas.getContext('2d');
+        const canvasContext = canvas.getContext('2d');
         for (let i = 0; i < this.state.width; i += this.state.squareSize) {
             // Drawing grid
-            ctx.moveTo(i, 0);
-            ctx.lineTo(i, this.state.height);
-            ctx.moveTo(0, i);
-            ctx.lineTo(this.state.width, i);
+            canvasContext.moveTo(i, 0);
+            canvasContext.lineTo(i, this.state.height);
+            canvasContext.moveTo(0, i);
+            canvasContext.lineTo(this.state.width, i);
         }
         for (let x = 0; x < this.state.map.length; x++) {
             for (let y = 0; y < this.state.map[x].length; y++) {
@@ -63,7 +77,7 @@ class App extends PureComponent<Props, State> {
                 if (elem) {
                     console.log('Elem', elem, x, y);
 
-                    ctx.fillRect(
+                    canvasContext.fillRect(
                         x * this.state.squareSize,
                         y * this.state.squareSize,
                         this.state.squareSize,
@@ -72,7 +86,8 @@ class App extends PureComponent<Props, State> {
                 }
             }
         }
-        ctx.stroke();
+        canvasContext.stroke();
+        this.setState({ canvasContext });
     };
 
     render() {
