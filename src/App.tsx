@@ -2,6 +2,7 @@ import React, { PureComponent } from 'react';
 import './App.css';
 
 const DEFAULT_ROUND_TIME_VALUE = 200; // ms
+const DEFAULT_SQUARE_SIZE_VALUE = 30;
 
 interface State {
     headerHeight: number;
@@ -14,22 +15,28 @@ interface State {
     roundTime: number;
 }
 
+const createMap = (width: number, height: number, squareSize: number): boolean[][] =>
+    [...Array(Math.ceil(width / squareSize))].map((_, x) =>
+        [...Array(Math.ceil(height / squareSize))].map((elem, y) => false),
+    );
+
+const getDefaultState = (): State => {
+    const { innerWidth: width, innerHeight: height } = window;
+    return {
+        width,
+        height,
+        headerHeight: 60,
+        squareSize: DEFAULT_SQUARE_SIZE_VALUE,
+        map: createMap(width, height, DEFAULT_SQUARE_SIZE_VALUE),
+        running: false,
+        roundTime: DEFAULT_ROUND_TIME_VALUE,
+    };
+};
+
 class App extends PureComponent<{}, State> {
     constructor(props: {}) {
         super(props);
-        const { innerWidth: width, innerHeight: height } = window;
-        const squareSize = 15;
-        this.state = {
-            width,
-            height,
-            headerHeight: 60,
-            squareSize,
-            map: [...Array(Math.ceil(width / squareSize))].map((_, x) =>
-                [...Array(Math.ceil(height / squareSize))].map((elem, y) => false),
-            ),
-            running: false,
-            roundTime: DEFAULT_ROUND_TIME_VALUE,
-        };
+        this.state = getDefaultState();
     }
     componentDidMount(): void {
         window.addEventListener('resize', this.updateWindowDimensions);
@@ -66,10 +73,20 @@ class App extends PureComponent<{}, State> {
         this.setState({ map });
     };
 
-    drawGrid = (): void => {
-        const canvas: any = this.refs.canvas;
-        canvas.addEventListener('mousedown', this.onCanvasPress, false);
-        const canvasContext = canvas.getContext('2d');
+    drawGrid = (reset = false): void => {
+        let canvasContext: any;
+        if (this.state.canvasContext) {
+            canvasContext = this.state.canvasContext;
+        } else {
+            const canvas: any = this.refs.canvas;
+            canvas.addEventListener('mousedown', this.onCanvasPress, false);
+            canvasContext = canvas.getContext('2d');
+        }
+        canvasContext.beginPath();
+        if (reset) {
+            console.log('On clear');
+            canvasContext.clearRect(0, 0, 500, 500);
+        }
         for (let i = 0; i < this.state.width; i += this.state.squareSize) {
             // Drawing grid
             canvasContext.moveTo(i, 0);
@@ -140,28 +157,96 @@ class App extends PureComponent<{}, State> {
                 <div
                     style={{
                         height: this.state.headerHeight,
-                        backgroundColor: '#585858',
+                        backgroundColor: 'coral',
+                        flexDirection: 'row',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
                     }}
                 >
-                    <button
-                        onClick={(): void =>
-                            this.setState({ running: !this.state.running }, () =>
-                                this.startAndStopGame(),
-                            )
-                        }
-                    >
-                        {this.state.running ? 'Stop' : 'Start'}
-                    </button>
-                    <input
-                        disabled={this.state.running}
-                        type="text"
-                        value={this.state.roundTime}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>): void => {
-                            let roundTime = parseInt(e.target.value);
-                            if (isNaN(roundTime)) roundTime = DEFAULT_ROUND_TIME_VALUE;
-                            this.setState({ roundTime });
-                        }}
-                    />
+                    <div className="header-item">
+                        <button
+                            onClick={(): void =>
+                                this.setState({ running: !this.state.running }, () =>
+                                    this.startAndStopGame(),
+                                )
+                            }
+                        >
+                            {this.state.running ? 'Stop' : 'Start'}
+                        </button>
+                    </div>
+                    <div className="header-item">
+                        <span>Time (in ms): </span>
+                        <input
+                            disabled={this.state.running}
+                            type="text"
+                            value={this.state.roundTime}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>): void => {
+                                let roundTime = parseInt(e.target.value);
+                                if (isNaN(roundTime)) roundTime = DEFAULT_ROUND_TIME_VALUE;
+                                this.setState({ roundTime });
+                            }}
+                        />
+                    </div>
+                    <div className="header-item">
+                        <span>Square size (in px): </span>
+                        <input
+                            disabled={this.state.running}
+                            type="number"
+                            value={this.state.squareSize}
+                            min="10"
+                            max="100"
+                            step="5"
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>): void => {
+                                let squareSize = parseInt(e.target.value);
+                                if (isNaN(squareSize)) squareSize = DEFAULT_SQUARE_SIZE_VALUE;
+                                else if (
+                                    squareSize < 10 ||
+                                    squareSize > 100 ||
+                                    squareSize % 5 !== 0
+                                )
+                                    squareSize = this.state.squareSize;
+                                this.setState(
+                                    {
+                                        squareSize,
+                                        map: createMap(
+                                            this.state.width,
+                                            this.state.height,
+                                            squareSize,
+                                        ),
+                                    },
+                                    () => this.drawGrid(true),
+                                );
+                            }}
+                        />
+                    </div>
+                    <div className="header-item">
+                        <button
+                            disabled={this.state.running}
+                            onClick={(): void => {
+                                const newMap = [...this.state.map.map(row => [...row])];
+                                for (let x = 0; x < newMap.length; x++)
+                                    for (let y = 0; y < newMap[x].length; y++) {
+                                        const value = Math.floor(Math.random() * 10) % 9 === 0;
+                                        newMap[x][y] = value;
+                                    }
+                                console.log(newMap);
+                                this.setState({ map: newMap }, () => this.drawGrid(true));
+                            }}
+                        >
+                            Random fill
+                        </button>
+                    </div>
+                    <div className="header-item">
+                        <button
+                            disabled={this.state.running}
+                            onClick={(): void =>
+                                this.setState(getDefaultState(), () => this.drawGrid(true))
+                            }
+                        >
+                            Clear
+                        </button>
+                    </div>
                 </div>
                 <canvas
                     ref="canvas"
