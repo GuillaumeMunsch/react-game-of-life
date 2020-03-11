@@ -1,6 +1,8 @@
 import React, { PureComponent } from 'react';
 import './App.css';
 
+const DEFAULT_ROUND_TIME_VALUE = 200; // ms
+
 interface State {
     headerHeight: number;
     width: number;
@@ -8,21 +10,25 @@ interface State {
     squareSize: number;
     map: boolean[][];
     canvasContext?: any;
+    running: boolean;
+    roundTime: number;
 }
 
 class App extends PureComponent<{}, State> {
     constructor(props: {}) {
         super(props);
         const { innerWidth: width, innerHeight: height } = window;
-        const squareSize = 200;
+        const squareSize = 15;
         this.state = {
             width,
             height,
             headerHeight: 60,
             squareSize,
             map: [...Array(Math.ceil(width / squareSize))].map((_, x) =>
-                [...Array(Math.ceil(height / squareSize))].map((elem, y) => (x + y) % 2 === 0),
+                [...Array(Math.ceil(height / squareSize))].map((elem, y) => false),
             ),
+            running: false,
+            roundTime: DEFAULT_ROUND_TIME_VALUE,
         };
     }
     componentDidMount(): void {
@@ -41,19 +47,19 @@ class App extends PureComponent<{}, State> {
     onCanvasPress = (e: any): void => {
         const x = Math.floor(e.pageX / this.state.squareSize);
         const y = Math.floor((e.pageY - this.state.headerHeight) / this.state.squareSize);
-        const map = this.state.map;
+        const map = [...this.state.map.map(row => [...row])];
         map[x][y] = !map[x][y];
         if (map[x][y])
             this.state.canvasContext.fillRect(
                 x * this.state.squareSize,
                 y * this.state.squareSize,
-                this.state.squareSize - 1,
-                this.state.squareSize - 1,
+                this.state.squareSize,
+                this.state.squareSize,
             );
         else
             this.state.canvasContext.clearRect(
-                x * this.state.squareSize,
-                y * this.state.squareSize,
+                x * this.state.squareSize + 1,
+                y * this.state.squareSize + 1,
                 this.state.squareSize - 1,
                 this.state.squareSize - 1,
             );
@@ -75,13 +81,18 @@ class App extends PureComponent<{}, State> {
             for (let y = 0; y < this.state.map[x].length; y++) {
                 const elem = this.state.map[x][y];
                 if (elem) {
-                    console.log('Elem', elem, x, y);
-
                     canvasContext.fillRect(
                         x * this.state.squareSize,
                         y * this.state.squareSize,
                         this.state.squareSize,
                         this.state.squareSize,
+                    );
+                } else {
+                    canvasContext.clearRect(
+                        x * this.state.squareSize + 1,
+                        y * this.state.squareSize + 1,
+                        this.state.squareSize - 1,
+                        this.state.squareSize - 1,
                     );
                 }
             }
@@ -90,15 +101,73 @@ class App extends PureComponent<{}, State> {
         this.setState({ canvasContext });
     };
 
+    updateCell = (x: number, y: number, map: boolean[][]): boolean => {
+        let neighbourCount = 0;
+        if (x - 1 >= 0 && y - 1 >= 0 && map[x - 1][y - 1]) neighbourCount++; // Top left
+        if (y - 1 >= 0 && map[x][y - 1]) neighbourCount++; // Top
+        if (x + 1 < map.length && y - 1 >= 0 && map[x + 1][y - 1]) neighbourCount++; // Top right
+        if (x - 1 >= 0 && map[x - 1][y]) neighbourCount++; // Left
+        if (x + 1 < map.length && map[x + 1][y]) neighbourCount++; // Right
+        if (x - 1 >= 0 && y + 1 <= map[x].length && map[x - 1][y + 1]) neighbourCount++; // Bottom left
+        if (y + 1 <= map[x].length && map[x][y + 1]) neighbourCount++; // Bottom
+        if (x + 1 < map.length && y + 1 <= map[x].length && map[x + 1][y + 1]) neighbourCount++; // Bottom right
+        if (map[x][y]) {
+            // Cell alive for now
+            return neighbourCount === 2 || neighbourCount === 3;
+        }
+        // No cell for now
+        return neighbourCount === 3;
+    };
+
+    startAndStopGame = (): void => {
+        if (this.state.running) {
+            setTimeout(() => {
+                const newMap = [...this.state.map.map(row => [...row])];
+                for (let x = 0; x < newMap.length; x++)
+                    for (let y = 0; y < newMap[x].length; y++)
+                        newMap[x][y] = this.updateCell(x, y, this.state.map);
+                this.setState({ map: newMap }, () => {
+                    this.drawGrid();
+                    this.startAndStopGame();
+                });
+            }, this.state.roundTime);
+        }
+    };
+
     render() {
         return (
             <div className="App">
-                <div style={{ height: this.state.headerHeight, backgroundColor: 'orange' }}>Header</div>
+                <div
+                    style={{
+                        height: this.state.headerHeight,
+                        backgroundColor: '#585858',
+                    }}
+                >
+                    <button
+                        onClick={(): void =>
+                            this.setState({ running: !this.state.running }, () =>
+                                this.startAndStopGame(),
+                            )
+                        }
+                    >
+                        {this.state.running ? 'Stop' : 'Start'}
+                    </button>
+                    <input
+                        disabled={this.state.running}
+                        type="text"
+                        value={this.state.roundTime}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>): void => {
+                            let roundTime = parseInt(e.target.value);
+                            if (isNaN(roundTime)) roundTime = DEFAULT_ROUND_TIME_VALUE;
+                            this.setState({ roundTime });
+                        }}
+                    />
+                </div>
                 <canvas
                     ref="canvas"
                     width={this.state.width}
                     height={this.state.height - this.state.headerHeight}
-                ></canvas>
+                />
             </div>
         );
     }
