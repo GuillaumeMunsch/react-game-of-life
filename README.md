@@ -9,7 +9,7 @@ A Game of life is a simple game based on cells who are born, survive or die. [Wi
 
 To launch this game of life, you have two solutions.
 * Download this repository, `npm install` and `npm start`
-* Visit [this page](http://guillaumemunsch.github.io/projects/react-game-of-life)
+* Visit [this page](http://guillaumemunsch.github.io/projects/react-game-of-life/index.html)
 
 To play, you can either click on the cells you want to start with, of randomly fill the board with cells. Each turn's time and the cell's size are editable.
 When you're read, just press `Start`.
