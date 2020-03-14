@@ -157,7 +157,7 @@ class App extends PureComponent<{}, State> {
                 <div
                     style={{
                         height: this.state.headerHeight,
-                        backgroundColor: 'coral',
+                        backgroundColor: '#3090C7',
                         flexDirection: 'row',
                         display: 'flex',
                         alignItems: 'center',
